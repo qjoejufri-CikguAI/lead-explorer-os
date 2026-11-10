@@ -1,0 +1,37 @@
+{
+  "records": [
+    {
+      "id": "1",
+      "name": "Alice Lead",
+      "company": "TechCorp Malaysia Johor",
+      "email": "alice@techcorp.com",
+      "phone": "+1-555-0100",
+      "industry": "Technology",
+      "region": "Mainland",
+      "source": "raw1.json",
+      "created_at": "2024-01-01T00:00:00Z"
+    },
+    {
+      "id": "2",
+      "name": "Bob Investment",
+      "company": "Investment Group Melaka",
+      "email": "bob@investment.com",
+      "phone": "+1-555-0101",
+      "industry": "Finance",
+      "region": "Kuala Lumpur",
+      "source": "raw2.csv",
+      "created_at": "2024-02-02T00:00:00Z"
+    },
+    {
+      "id": "3",
+      "name": "Carol Revenue",
+      "company": "Revenue Solutions Johor Malaysia",
+      "email": "carol@revenue.com",
+      "phone": "+1-555-0102",
+      "industry": "Services",
+      "region": "Johor",
+      "source": "raw3.json",
+      "created_at": "2024-03-03T00:00:00Z"
+    }
+  ]
+}

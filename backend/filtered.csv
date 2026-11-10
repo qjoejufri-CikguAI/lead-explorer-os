@@ -1,0 +1,2 @@
+id,name,company,email,phone,industry,region,source,created_at,intent_score,interest_level
+1,Alice,TechCorp Malaysia Johor,alice@techcorp.com,+1-555-0100,Technology,Mainland,raw1.json,2024-01-01T00:00:00Z,0.4,Cold

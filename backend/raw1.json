@@ -1,0 +1,26 @@
+{
+  "records": [
+    {
+      "id": "1",
+      "name": "Alice",
+      "company": "TechCorp Malaysia Johor",
+      "email": "alice@techcorp.com",
+      "phone": "+1-555-0100",
+      "industry": "Technology",
+      "region": "Mainland",
+      "source": "raw1.json",
+      "created_at": "2024-01-01T00:00:00Z"
+    },
+    {
+      "id": "2",
+      "name": "Bob",
+      "company": "Investment Group Melaka",
+      "email": "bob@investment.com",
+      "phone": "+1-555-0101",
+      "industry": "Finance",
+      "region": "Kuala Lumpur",
+      "source": "raw2.csv",
+      "created_at": "2024-02-02T00:00:00Z"
+    }
+  ]
+}
