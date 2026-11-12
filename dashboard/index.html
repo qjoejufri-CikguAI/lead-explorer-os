@@ -219,7 +219,9 @@ function openDM(btn) {
       tr.dataset.phone = lead.phone || '';
       tr.dataset.email = lead.email || '';
       tr.dataset.socialLink = lead.social_link || lead.profile_url || '';
-      const interestClass = lead.interest_level === 'Hot' ? 'text-danger' : lead.interest_level === 'Warm' ? 'text-warning' : 'text-muted';
+      const score = parseFloat(lead.intent_score) || 0;
+      const interestClass = score >= 0.8 ? 'text-danger' : score >= 0.6 ? 'text-warning' : score >= 0.4 ? 'text-info' : 'text-muted';
+      const interestLabel = score >= 0.8 ? 'Super Hot' : score >= 0.6 ? 'Hot' : score >= 0.4 ? 'Warm' : 'Cold';
       const emailDisabled = !lead.email ? 'disabled' : '';
       const dmDisabled = (!lead.social_link && !lead.profile_url) ? 'disabled' : '';
 
@@ -231,7 +233,7 @@ function openDM(btn) {
         actionButtons = '<div class="d-flex gap-1"><button type="button" class="btn btn-sm btn-success" onclick="openWhatsApp(this)" title="WhatsApp">📱</button><button type="button" class="btn btn-sm btn-outline-primary" onclick="openCall(this)" title="Call">📞</button><button type="button" class="btn btn-sm btn-outline-secondary" onclick="copyPhone(this)" title="Copy">📋</button><button type="button" class="btn btn-sm btn-outline-danger" onclick="openEmail(this)" title="Email" ' + emailDisabled + '>✉️</button><button type="button" class="btn btn-sm btn-outline-info" onclick="openDM(this)" title="DM/Profil" ' + dmDisabled + '>🔗</button></div>';
       }
       const createdAt = lead.created_at ? new Date(lead.created_at).toLocaleString('ms-MY') : '';
-      tr.innerHTML = '<td>' + lead.id + '</td><td>' + lead.name + '</td><td>' + lead.niche + '</td><td>' + lead.area + '</td><td>' + (lead.source_account || '') + '</td><td class="context-cell">' + (lead.context || lead.comment || '') + '</td><td>' + lead.intent_score + '</td><td class="' + interestClass + '">' + lead.interest_level + '</td><td>' + createdAt + '</td><td>' + actionButtons + '</td>';
+      tr.innerHTML = '<td>' + lead.id + '</td><td>' + lead.name + '</td><td>' + lead.niche + '</td><td>' + lead.area + '</td><td>' + (lead.source_account || '') + '</td><td class="context-cell">' + (lead.context || lead.comment || '') + '</td><td>' + lead.intent_score + '</td><td class="' + interestClass + '">' + interestLabel + '</td><td>' + createdAt + '</td><td>' + actionButtons + '</td>';
       tbody.appendChild(tr);
     });
   }

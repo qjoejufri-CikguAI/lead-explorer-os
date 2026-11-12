@@ -9,6 +9,7 @@ import asyncio
 import json
 import os
 import sys
+from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -21,6 +22,7 @@ DATA_PATH = Path(__file__).parent / "tiktok_hunter_multi_data.json"
 
 # Global state
 seen_comments = set()
+seen_joins = set()
 data_queue = asyncio.Queue()
 semaphore = asyncio.Semaphore(3)
 
@@ -40,13 +42,10 @@ async def queue_worker():
 
             if event_type == "comment":
                 comment = item["comment"]
-                comment_key = f"{user}_{comment}"
+                user = item["user"]
+                source_account = item.get("source_account", "")
 
-                if comment_key in seen_comments:
-                    print(f"[SKIP] Duplicate komen dari {user}")
-                    continue
-
-                seen_comments.add(comment_key)
+                seen_comments.add(f"{source_account}_{user}_{comment}")
 
                 score = parse_intent(comment)
 
@@ -65,23 +64,20 @@ async def queue_worker():
                         "context": comment,
                         "plate_number": "",
                         "keyword": "",
-                        "source_account": username,
+                        "source_account": source_account,
                         "created_at": datetime.now().isoformat(),
                     }
                     save_to_sqlite([lead])
                     print(f"[HOT] SQLite: {user} (score={score})")
 
             elif event_type == "join":
-                join_key = f"{user}_join"
-                if join_key in seen_comments:
-                    continue
-                seen_comments.add(join_key)
+                seen_joins.add(f"{item.get('source_account', '')}_{user}")
 
                 lead = {
                     "name": user,
                     "niche": "TikTok Live",
                     "area": "",
-                    "intent_score": 0.6,
+                    "intent_score": 0.3,
                     "interest_level": "Warm",
                     "phone": "",
                     "email": "",
@@ -91,7 +87,7 @@ async def queue_worker():
                     "context": f"Masuk live",
                     "plate_number": "",
                     "keyword": "",
-                    "source_account": username,
+                    "source_account": item.get("source_account", ""),
                     "created_at": datetime.now().isoformat(),
                 }
                 save_to_sqlite([lead])
@@ -112,17 +108,27 @@ async def monitor_live(username: str):
 
         @client.on(CommentEvent)
         async def on_comment(event: CommentEvent):
+            comment_key = f"{username}_{event.user.unique_id}_{event.comment}"
+            if comment_key in seen_comments:
+                return
+            seen_comments.add(comment_key)
             await data_queue.put({
                 "type": "comment",
                 "user": event.user.unique_id,
                 "comment": event.comment,
+                "source_account": username,
             })
 
         @client.on(JoinEvent)
         async def on_join(event: JoinEvent):
+            join_key = f"{username}_{event.user.unique_id}"
+            if join_key in seen_joins:
+                return
+            seen_joins.add(join_key)
             await data_queue.put({
                 "type": "join",
                 "user": event.user.unique_id,
+                "source_account": username,
             })
 
         try:

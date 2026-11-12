@@ -16,6 +16,9 @@ NEGATIVE_KEYWORDS = [
     "sa", "dealer", "iklan",
 ]
 
+# Specific buying intent words (score 0.8)
+SPECIFIC_KEYWORDS = ["warna", "review", "jimat", "minyak"]
+
 def parse_intent(text: str) -> float:
     """
     Parse intent from comment text and return a score between 0.0 and 1.0.
@@ -40,5 +43,12 @@ def parse_intent(text: str) -> float:
         if kw in text_lower:
             return 0.9
 
-    # Default moderate score for other comments
-    return 0.5
+    # Check for question mark or specific buying words - return 0.8
+    if "?" in text_lower:
+        return 0.8
+    for kw in SPECIFIC_KEYWORDS:
+        if kw in text_lower:
+            return 0.8
+
+    # Base score for any comment
+    return 0.6
