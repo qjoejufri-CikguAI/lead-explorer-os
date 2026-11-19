@@ -56,7 +56,8 @@ def init_db():
             keyword TEXT,
             source_account TEXT,
             created_at TEXT,
-            processed_at TEXT
+            processed_at TEXT,
+            UNIQUE(name, source_account)
         )
     ''')
     conn.commit()
@@ -65,19 +66,42 @@ def init_db():
 def save_to_sqlite(leads):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
+    saved = 0
+    skipped = 0
     for lead in leads:
+        name = lead.get('name')
+        source_account = lead.get('source_account', '')
+        context = lead.get('context', '')
+        intent_score = lead.get('intent_score', 0)
+        interest_level = lead.get('interest_level', '')
+
+        # Guard clause: buang lead dengan intent_score rendah (< 0.6)
+        if intent_score < 0.6:
+            skipped += 1
+            continue
+
+        # Upsert: jika nama + source_account sudah wujud, gabungkan konteks dan ambil skor tertinggi
         cursor.execute('''
             INSERT INTO leads (name, niche, area, intent_score, interest_level, phone, email, social_link, platform, source_type, context, plate_number, keyword, source_account, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(name, source_account) DO UPDATE SET
+                context = leads.context || ' | ' || excluded.context,
+                intent_score = MAX(leads.intent_score, excluded.intent_score),
+                interest_level = CASE
+                    WHEN MAX(leads.intent_score, excluded.intent_score) >= 0.8 THEN 'Hot'
+                    WHEN MAX(leads.intent_score, excluded.intent_score) >= 0.6 THEN 'Warm'
+                    ELSE 'Cold'
+                END
         ''', (
-            lead.get('name'), lead.get('niche'), lead.get('area'), lead.get('intent_score'), lead.get('interest_level'),
+            name, lead.get('niche'), lead.get('area'), intent_score, interest_level,
             lead.get('phone', ''), lead.get('email', ''), lead.get('social_link', ''),
-            lead.get('platform'), lead.get('source_type'), lead.get('context'), lead.get('plate_number', ''),
-            lead.get('keyword'), lead.get('source_account', ''), datetime.now().isoformat()
+            lead.get('platform'), lead.get('source_type'), context, lead.get('plate_number', ''),
+            lead.get('keyword'), source_account, datetime.now().isoformat()
         ))
+        saved += 1
     conn.commit()
     conn.close()
-    print(f"[DONE] {len(leads)} leads disimpan ke SQLite.")
+    print(f"[DONE] {saved} leads disimpan ke SQLite, {skipped} lead buang (skor < 0.6).")
 
 def sync_sqlite_to_supabase():
     print("[INFO] Memulakan sinkronisasi SQLite ke Supabase...")
@@ -122,7 +146,7 @@ def sync_sqlite_to_supabase():
         "Prefer": "resolution=merge-duplicates"
     }
 
-    res = requests.post(f"{SUPABASE_URL}/rest/v1/leads", headers=headers, json=payload)
+    res = requests.post(f"{SUPABASE_URL}/rest/v1/leads?on_conflict=name,source_account", headers=headers, json=payload)
     if res.status_code in [200, 201]:
         print(f"[OK] Berjaya sync {len(payload)} leads ke Supabase.")
     else:

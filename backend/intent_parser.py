@@ -7,6 +7,7 @@ from typing import Tuple
 # Strong buying signals (high score 0.9) - HANYA untuk soalan/niat beli sebenar
 STRONG_KEYWORDS = [
     "berapa", "pm", "minat", "nak", "loan", "masih ada", "detail", "info",
+    "depo", "deposit", "monthly", "bulanan",
 ]
 
 # Negative signals - return 0.1 (seller ads / car specs / non-buying)
@@ -18,6 +19,9 @@ NEGATIVE_KEYWORDS = [
 
 # Specific buying intent words (score 0.8)
 SPECIFIC_KEYWORDS = ["warna", "review", "jimat", "minyak"]
+
+# Low-effort responses - return 0.2 (Cold)
+COLD_KEYWORDS = ["faham", "ok"]
 
 def parse_intent(text: str) -> float:
     """
@@ -37,6 +41,12 @@ def parse_intent(text: str) -> float:
     for kw in NEGATIVE_KEYWORDS:
         if kw in text_lower:
             return 0.1
+
+    # Short text (<3 chars) or low-effort responses - return 0.2 (Cold)
+    if len(text_lower) < 3:
+        return 0.2
+    if text_lower in COLD_KEYWORDS:
+        return 0.2
 
     # Check for strong buying keywords - return 0.9
     for kw in STRONG_KEYWORDS:

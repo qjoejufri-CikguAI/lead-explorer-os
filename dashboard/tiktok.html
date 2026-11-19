@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TikTok Lead Explorer</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { background-color: #f8f9fa; padding-top: 40px; }
+        .container { max-width: 1200px; }
+        .table-container { background: #fff; border-radius: 8px; box-shadow: 0 2px 15px rgba(0,0,0,0.1); padding: 25px; margin-top: 30px; }
+        h1 { color: #2c3e50; margin-bottom: 20px; }
+        .data-count { color: #6c757d; font-size: 0.9rem; margin-bottom: 20px; }
+        .search-form { margin-bottom: 15px; padding: 15px; background: #f1f3f5; border-radius: 8px; }
+        .status-message { margin-top: 10px; padding: 10px; border-radius: 4px; }
+        .context-cell { max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    </style>
+</head>
+<body>
+<div id="authOverlay" style="display:flex; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:99999; align-items:center; justify-content:center;">
+  <div style="background:#fff; max-width:400px; width:90%; padding:40px; border-radius:12px; box-shadow:0 4px 20px rgba(0,0,0,0.3); text-align:center;">
+    <h2 style="margin-top:0;">🔐 Lead Explorer - Login</h2>
+    <input type="password" id="passwordInput" placeholder="Masukkan Password" style="width:100%; padding:12px; margin-bottom:16px; font-size:1rem; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;">
+    <button id="loginBtn" style="width:100%; padding:12px; background:#0d6efd; color:#fff; border:none; border-radius:6px; font-size:1rem; cursor:pointer;">Masuk</button>
+    <p id="loginError" style="color:red; display:none; margin-top:12px; font-size:0.9rem;">Password Salah!</p>
+  </div>
+</div>
+<div class="container">
+    <div class="text-center mb-4">
+        <h1>TikTok Lead Explorer</h1>
+        <div class="data-count" id="totalLeadsCount">Total Leads: 5</div>
+    </div>
+
+    <div class="text-center mb-3">
+        <a href="index.html" class="btn btn-secondary me-2">🔙 Kembali ke Utama</a>
+        <a href="facebook.html" class="btn btn-primary">Buka Dashboard Facebook</a>
+    </div>
+
+    <form id="filterForm" class="search-form">
+        <div class="row g-3">
+            <div class="col-md-4">
+                <select class="form-select" id="nicheFilter">
+                    <option value="">Semua Niche</option>
+                    <option value="Jualan Kereta">Jualan Kereta</option>
+                    <option value="Servis Bengkel">Servis Bengkel</option>
+                    <option value="Aksesori Kereta">Aksesori Kereta</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <select class="form-select" id="areaFilter">
+                    <option value="">Semua Kawasan</option>
+                    <option value="Kuala Lumpur">Wilayah Persekutuan Kuala Lumpur</option>
+                    <option value="Putrajaya">Wilayah Persekutuan Putrajaya</option>
+                    <option value="Labuan">Wilayah Persekutuan Labuan</option>
+                    <option value="Petaling Jaya">Selangor - Petaling Jaya</option>
+                    <option value="Shah Alam">Selangor - Shah Alam</option>
+                    <option value="Klang">Selangor - Klang</option>
+                    <option value="Subang Jaya">Selangor - Subang Jaya</option>
+                    <option value="Gombak">Selangor - Gombak</option>
+                    <option value="Hulu Langat">Selangor - Hulu Langat</option>
+                    <option value="Sungai Buloh">Selangor - Sungai Buloh</option>
+                    <option value="Rawang">Selangor - Rawang</option>
+                    <option value="Muar">Johor - Muar</option>
+                    <option value="Tangkak">Johor - Tangkak</option>
+                    <option value="Batu Pahat">Johor - Batu Pahat</option>
+                    <option value="Kluang">Johor - Kluang</option>
+                    <option value="Johor Bahru">Johor - Johor Bahru</option>
+                    <option value="Segamat">Johor - Segamat</option>
+                    <option value="Pontian">Johor - Pontian</option>
+                    <option value="Kota Tinggi">Johor - Kota Tinggi</option>
+                    <option value="Mersing">Johor - Mersing</option>
+                    <option value="Kulai">Johor - Kulai</option>
+                    <option value="Seremban">Negeri Sembilan - Seremban</option>
+                    <option value="Nilai">Negeri Sembilan - Nilai</option>
+                    <option value="Bahau">Negeri Sembilan - Bahau</option>
+                    <option value="Gemas">Negeri Sembilan - Gemas</option>
+                    <option value="Ayer Hitam">Negeri Sembilan - Ayer Hitam</option>
+                    <option value="Kuantan">Pahang - Kuantan</option>
+                    <option value="Gambang">Pahang - Gambang</option>
+                    <option value="Temerloh">Pahang - Temerloh</option>
+                    <option value="Bandar Muadzam Shah">Pahang - Bandar Muadzam Shah</option>
+                    <option value="Ipoh">Perak - Ipoh</option>
+                    <option value="Taiping">Perak - Taiping</option>
+                    <option value="Cameron Highlands">Perak - Cameron Highlands</option>
+                    <option value="Gopeng">Perak - Gopeng</option>
+                    <option value="Teluk Intan">Perak - Teluk Intan</option>
+                    <option value="Padang Rengas">Perak - Padang Rengas</option>
+                    <option value="Kangar">Perlis - Kangar</option>
+                    <option value="Padang Serai">Perlis - Padang Serai</option>
+                    <option value="Arau">Perlis - Arau</option>
+                    <option value="Simpang Empat">Perlis - Simpang Empat</option>
+                    <option value="George Town">Penang - George Town</option>
+                    <option value="Butterworth">Penang - Butterworth</option>
+                    <option value="Bayan Lepas">Penang - Bayan Lepas</option>
+                    <option value="Kota Kinabalu">Sabah - Kota Kinabalu</option>
+                    <option value="Sandakan">Sabah - Sandakan</option>
+                    <option value="Likas">Sabah - Likas</option>
+                    <option value="Papar">Sabah - Papar</option>
+                    <option value="Ranau">Sabah - Ranau</option>
+                    <option value="Penampang">Sabah - Penampang</option>
+                    <option value="Kuching">Sarawak - Kuching</option>
+                    <option value="Sibu">Sarawak - Sibu</option>
+                    <option value="Miri">Sarawak - Miri</option>
+                    <option value="Bintulu">Sarawak - Bintulu</option>
+                    <option value="Kuala Terengganu">Terengganu - Kuala Terengganu</option>
+                    <option value="Kuala Berang">Terengganu - Kuala Berang</option>
+                    <option value="Hulu Terengganu">Terengganu - Hulu Terengganu</option>
+                    <option value="Setiu">Terengganu - Setiu</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <input type="text" class="form-control" id="subjectFilter" placeholder="Cari Nama, Niche, Daerah atau Kata Kunci">
+            </div>
+            <div class="col-md-4">
+                <select class="form-select" id="sortFilter">
+                    <option value="score">Intent Score (Tinggi ke Rendah)</option>
+                    <option value="new">Terbaru</option>
+                    <option value="name">Nama (A-Z)</option>
+                </select>
+            </div>
+            <div class="col-12">
+                <button type="submit" class="btn btn-primary">Apply Filters</button>
+                <button type="reset" class="btn btn-outline-secondary">Reset</button>
+                <button id="runScoutBtn" class="btn btn-success ms-2" type="button">Run Scout Agent</button>
+                <button id="setTargetsBtn" class="btn btn-warning ms-2" type="button">🎯 Set Targets</button>
+                <button id="farmingModeBtn" class="btn btn-success ms-2" type="button">🌾 Mode Farming</button>
+                <button id="contentWarBtn" class="btn btn-warning text-dark fw-bold ms-2" type="button">⚔️ Content War</button>
+            </div>
+        </div>
+    </form>
+    <div class="status-message" id="statusMessage"></div>
+
+    <div id="vipAlertBanner" style="display:none; background:#dc3545; color:#fff; padding:12px; text-align:center; border-radius:6px; margin-bottom:10px; font-weight:bold;">
+      <span id="vipAlertText"></span>
+      <a id="vipAlertLink" href="#" target="_blank" rel="noopener" style="color:#fff; text-decoration:underline; margin-left:10px;">[Buka Live]</a>
+    </div>
+
+    <div class="modal fade" id="targetsModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header bg-warning text-dark">
+            <h5 class="modal-title fw-bold">🎯 Set Targets - Senarai S.A. Scout</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <p class="small text-muted">Paste senarai username di bawah. Satu username satu baris. Jangan sertakan simbol @.</p>
+            <textarea id="targetsInput" rows="10" class="form-control" placeholder="contoh:\ndealer_kereta\njualan_motor\nproton_s70"></textarea>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+            <button type="button" class="btn btn-warning" id="saveTargetsBtn">Simpan Target</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="contentWarModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header bg-warning text-dark">
+            <h5 class="modal-title fw-bold">⚔️ Content War - TikTok Content Assistant</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <div class="row mb-4">
+              <div class="col-12">
+                <h6 class="text-warning fw-bold">🔥 Top 10 Search Keywords (TikTok SEO)</h6>
+                <p class="small text-muted">Ayat ini direka dari kontek lead yang mengandungi tanda tanya atau kata kunci pinjaman/depo.</p>
+                <ul id="contentWarKeywords" class="list-group list-group-flush"></ul>
+              </div>
+            </div>
+
+            <hr>
+
+            <div class="row mb-4">
+              <div class="col-12">
+                <h6 class="text-primary fw-bold">🛡️ Objection Buster Scripts</h6>
+                <div class="row g-3">
+                  <div class="col-md-4">
+                    <div class="card h-100 border-warning">
+                      <div class="card-body">
+                        <h6 class="card-title fw-bold">1. Blacklist / Pinjaman Susah</h6>
+                        <p class="card-text small">"Tak lulus pinjaman? Blacklist depa tak masalah, kami ada solution untuk anda. DM sekarang!"</p>
+                        <button class="btn btn-sm btn-outline-primary copy-script" data-script='"Tak lulus pinjaman? Blacklist depa tak masalah, kami ada solution untuk anda. DM sekarang!"'>Copy Script</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="col-md-4">
+                    <div class="card h-100 border-warning">
+                      <div class="card-body">
+                        <h6 class="card-title fw-bold">2. Depo Tinggi (Promo Depo Rendah)</h6>
+                        <p class="card-text small">"Depo tak cukup? Promo depo rendah sekarang sahaja. Ambil kereta impian anda hari ni!"</p>
+                        <button class="btn btn-sm btn-outline-primary copy-script" data-script='"Depo tak cukup? Promo depo rendah sekarang sahaja. Ambil kereta impian anda hari ni!"'>Copy Script</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="col-md-4">
+                    <div class="card h-100 border-warning">
+                      <div class="card-body">
+                        <h6 class="card-title fw-bold">3. Kereta Lama (Promo Trade-in)</h6>
+                        <p class="card-text small">"Kereta lama tak bernilai? Trade-in sekarang dan dapat nilai terbaik untuk upgrade baharu!"</p>
+                        <button class="btn btn-sm btn-outline-primary copy-script" data-script='"Kereta lama tak bernilai? Trade-in sekarang dan dapat nilai terbaik untuk upgrade baharu!"'>Copy Script</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <hr>
+
+            <div class="row">
+              <div class="col-12">
+                <h6 class="text-success fw-bold">🎣 Bait &amp; Hook Captions</h6>
+                <div class="row g-3">
+                  <div class="col-md-4">
+                    <div class="card h-100 border-success">
+                      <div class="card-body">
+                        <h6 class="card-title fw-bold">1. Pancing Model S70</h6>
+                        <p class="card-text small">"Siapa nak model S70? Komen di bawah, saya PM harga terbaik!"</p>
+                        <button class="btn btn-sm btn-outline-success copy-caption" data-caption='"Siapa nak model S70? Komen di bawah, saya PM harga terbaik!"'>Copy Caption</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="col-md-4">
+                    <div class="card h-100 border-success">
+                      <div class="card-body">
+                        <h6 class="card-title fw-bold">2. Pancing Model X50</h6>
+                        <p class="card-text small">"Model X50 lagi murah! Siapa minat? Komen, saya bagi detail."</p>
+                        <button class="btn btn-sm btn-outline-success copy-caption" data-caption='"Model X50 lagi murah! Siapa minat? Komen, saya bagi detail."'>Copy Caption</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="col-md-4">
+                    <div class="card h-100 border-success">
+                      <div class="card-body">
+                        <h6 class="card-title fw-bold">3. Pancing Umum</h6>
+                        <p class="card-text small">"Apa kereta yang anda nak sekarang? Komen model, saya carikan pinjaman terbaik."</p>
+                        <button class="btn btn-sm btn-outline-success copy-caption" data-caption='"Apa kereta yang anda nak sekarang? Komen model, saya carikan pinjaman terbaik."'>Copy Caption</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="table-container">
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead class="table-dark">
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Niche</th>
+                        <th>Area</th>
+                        <th>Live Dari</th>
+                        <th>Konteks / Komen</th>
+                        <th>Intent Score</th>
+                        <th>Interest Level</th>
+                        <th>Tarikh/Masa</th>
+                        <th>Tindakan</th>
+                    </tr>
+                </thead>
+                <tbody id="leadsTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script type="module">
+  import { supabaseClient } from './src/supabaseClient.js';
+  import { runScoutAgent } from './src/scoutAgent.js';
+
+function openWhatsApp(btn) {
+    const phone = btn.closest('tr').dataset.phone;
+    if (!phone) {
+        alert('Nombor telefon tiada untuk lead ni.');
+        return;
+    }
+    window.open('https://wa.me/' + phone, '_blank');
+}
+
+function openCall(btn) {
+    const phone = btn.closest('tr').dataset.phone;
+    if (!phone) { alert('Tiada nombor telefon.'); return; }
+    window.location.href = 'tel:' + phone;
+}
+
+function copyPhone(btn) {
+    const phone = btn.closest('tr').dataset.phone;
+    if (!phone) return;
+    navigator.clipboard.writeText(phone).then(() => {
+        const original = btn.innerHTML;
+        btn.innerHTML = '✅';
+        setTimeout(() => { btn.innerHTML = original; }, 1500);
+    });
+}
+
+function openEmail(btn) {
+    const tr = btn.closest('tr');
+    const email = tr.dataset.email || '';
+    if (!email) { alert('Tiada email untuk lead ini.'); return; }
+    window.location.href = 'mailto:' + email;
+}
+
+function openDM(btn) {
+    const tr = btn.closest('tr');
+    const url = tr.dataset.socialLink || tr.dataset.profileUrl || '';
+    if (!url) { alert('Tiada link profil untuk lead ini.'); return; }
+    window.open(url, '_blank');
+  }
+
+  const tbody = document.getElementById('leadsTableBody');
+  const form = document.getElementById('filterForm');
+  const statusDiv = document.getElementById('statusMessage');
+
+  async function fetchLeads() {
+    statusDiv.textContent = 'Memuatkan prospek dari Supabase...';
+    const { data, error } = await supabaseClient.from('leads').select('*').ilike('platform', '%tiktok%').order('id', { ascending: true });
+    if (error) {
+      statusDiv.textContent = 'Ralat memuatkan prospek: ' + error.message;
+      return;
+    }
+    window.leadsData = data || [];
+    renderLeads(window.leadsData);
+    const count = (data || []).length;
+    document.getElementById('totalLeadsCount').textContent = 'Total Leads: ' + count;
+    console.log('Data dari Supabase:', data);
+    statusDiv.textContent = 'Dimuatkan ' + count + ' prospek dari Supabase.';
+  }
+  window.fetchLeads = fetchLeads;
+
+  // Content War
+  const contentWarBtn = document.getElementById('contentWarBtn');
+  const contentWarModalEl = document.getElementById('contentWarModal');
+  const keywordsList = document.getElementById('contentWarKeywords');
+
+  const KEYWORD_TRIGGERS = ['?', 'depo', 'loan', 'bulan', 'harga', 'otr'];
+  const EXCLUDE_WORDS = ['masuk live', 'live'];
+
+  function scanKeywords() {
+    const leads = window.leadsData || [];
+    const matched = [];
+
+    leads.forEach(lead => {
+      const context = (lead.context || lead.comment || '') || '';
+      const parts = context.split('|');
+
+      parts.forEach(part => {
+        const sentence = part.trim();
+        if (!sentence) return;
+
+        const lower = sentence.toLowerCase();
+
+        if (EXCLUDE_WORDS.some(w => lower.includes(w))) return;
+
+        const hasTrigger = KEYWORD_TRIGGERS.some(k => lower.includes(k.toLowerCase()));
+        if (!hasTrigger) return;
+
+        matched.push(sentence);
+      });
+    });
+
+    const freqMap = {};
+    matched.forEach(s => { freqMap[s] = (freqMap[s] || 0) + 1; });
+
+    const unique = matched.filter((v, i, a) => a.indexOf(v) === i);
+
+    unique.sort((a, b) => {
+      const fa = freqMap[a] || 1;
+      const fb = freqMap[b] || 1;
+      if (fb !== fa) return fb - fa;
+      return b.length - a.length;
+    });
+
+    const top10 = unique.slice(0, 10);
+
+    keywordsList.innerHTML = '';
+    if (top10.length === 0) {
+      keywordsList.innerHTML = '<li class="list-group-item text-muted">Tiada keyword jumpa. Jalankan Hunter dahulu untuk mengumpul leads.</li>';
+      return;
+    }
+    top10.forEach(kw => {
+      const li = document.createElement('li');
+      li.className = 'list-group-item d-flex justify-content-between align-items-center';
+      li.innerHTML = `<span class="small">${kw}</span><button class="btn btn-sm btn-outline-secondary copy-kw">Copy</button>`;
+      li.querySelector('.copy-kw').addEventListener('click', function () {
+        navigator.clipboard.writeText(kw).then(() => {
+          const orig = this.innerHTML;
+          this.innerHTML = 'Tersalin!';
+          setTimeout(() => { this.innerHTML = orig; }, 1200);
+        });
+      });
+      keywordsList.appendChild(li);
+    });
+  }
+
+  contentWarBtn?.addEventListener('click', function () {
+    scanKeywords();
+    const modal = new bootstrap.Modal(contentWarModalEl);
+    modal.show();
+  });
+
+  document.getElementById('contentWarModal')?.addEventListener('click', function (e) {
+    if (e.target.classList.contains('copy-script')) {
+      const text = e.target.getAttribute('data-script');
+      navigator.clipboard.writeText(text).then(() => {
+        const orig = e.target.innerHTML;
+        e.target.innerHTML = 'Tersalin!';
+        setTimeout(() => { e.target.innerHTML = orig; }, 1200);
+      });
+    }
+    if (e.target.classList.contains('copy-caption')) {
+      const text = e.target.getAttribute('data-caption');
+      navigator.clipboard.writeText(text).then(() => {
+        const orig = e.target.innerHTML;
+        e.target.innerHTML = 'Tersalin!';
+        setTimeout(() => { e.target.innerHTML = orig; }, 1200);
+      });
+    }
+  });
+
+  // Set Targets Modal
+  const setTargetsBtn = document.getElementById('setTargetsBtn');
+  const targetsModalEl = document.getElementById('targetsModal');
+  const targetsInput = document.getElementById('targetsInput');
+  const saveTargetsBtn = document.getElementById('saveTargetsBtn');
+
+  setTargetsBtn?.addEventListener('click', function () {
+    const modal = new bootstrap.Modal(targetsModalEl);
+    modal.show();
+  });
+
+  saveTargetsBtn?.addEventListener('click', async function () {
+    const raw = targetsInput.value || '';
+    const lines = raw.split('\n');
+    const usernames = lines
+      .map(l => l.trim().replace(/^@/, ''))
+      .filter(l => l.length > 0);
+
+    if (usernames.length === 0) {
+      alert('Sila masukkan sekurang-kecnya satu username.');
+      return;
+    }
+
+    try {
+      // Padam semua rekod lama
+      const { error: delError } = await supabaseClient
+        .from('scout_targets')
+        .delete()
+        .neq('id', 0);
+
+      if (delError) throw delError;
+
+      // Insert semua username baru
+      const rows = usernames.map(u => ({ username: u, status: 'pending' }));
+      const { error: insError } = await supabaseClient
+        .from('scout_targets')
+        .insert(rows);
+
+      if (insError) throw insError;
+
+      alert(usernames.length + ' target berjaya disimpan!');
+      targetsInput.value = '';
+      const modal = bootstrap.Modal.getInstance(targetsModalEl);
+      if (modal) modal.hide();
+    } catch (err) {
+      console.error('Gagal simpan target:', err);
+      alert('Ralat menyimpan target: ' + err.message);
+    }
+  });
+
+  function renderLeads(leads) {
+    tbody.innerHTML = '';
+    const sortVal = document.getElementById('sortFilter')?.value || 'score';
+    const sorted = [...leads].sort((a, b) => {
+      if (sortVal === 'score') {
+        return (b.intent_score || 0) - (a.intent_score || 0);
+      } else if (sortVal === 'new') {
+        return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+      } else if (sortVal === 'name') {
+        return (a.name || '').localeCompare(b.name || '');
+      }
+      return 0;
+    });
+    sorted.forEach(lead => {
+      const tr = document.createElement('tr');
+      tr.dataset.phone = lead.phone || '';
+      tr.dataset.email = lead.email || '';
+      tr.dataset.socialLink = lead.social_link || lead.profile_url || '';
+      const score = parseFloat(lead.intent_score) || 0;
+      const interestClass = score >= 0.8 ? 'text-danger' : score >= 0.6 ? 'text-warning' : score >= 0.4 ? 'text-info' : 'text-muted';
+      const interestLabel = score >= 0.8 ? 'Super Hot' : score >= 0.6 ? 'Hot' : score >= 0.4 ? 'Warm' : 'Cold';
+      const emailDisabled = !lead.email ? 'disabled' : '';
+      const dmDisabled = (!lead.social_link && !lead.profile_url) ? 'disabled' : '';
+
+      let actionButtons = '';
+      if (lead.platform === 'TikTok') {
+        const profileUrl = lead.social_link || `https://www.tiktok.com/@${lead.name}`;
+        actionButtons = '<div class="d-flex gap-1"><button type="button" class="btn btn-sm btn-dark" onclick="window.open(\'' + profileUrl.replace(/'/g, "\\'") + '\', \'_blank\')" title="Buka Profil TikTok">🎵 Buka Profil TikTok</button><button type="button" class="btn btn-sm btn-outline-secondary" onclick="copyPhone(this)" title="Copy">📋</button></div>';
+      } else {
+        actionButtons = '<div class="d-flex gap-1"><button type="button" class="btn btn-sm btn-success" onclick="openWhatsApp(this)" title="WhatsApp">📱</button><button type="button" class="btn btn-sm btn-outline-primary" onclick="openCall(this)" title="Call">📞</button><button type="button" class="btn btn-sm btn-outline-secondary" onclick="copyPhone(this)" title="Copy">📋</button><button type="button" class="btn btn-sm btn-outline-danger" onclick="openEmail(this)" title="Email" ' + emailDisabled + '>✉️</button><button type="button" class="btn btn-sm btn-outline-info" onclick="openDM(this)" title="DM/Profil" ' + dmDisabled + '>🔗</button></div>';
+      }
+      const createdAt = lead.created_at ? new Date(lead.created_at).toLocaleString('ms-MY') : '';
+      tr.innerHTML = '<td>' + lead.id + '</td><td>' + lead.name + '</td><td>' + lead.niche + '</td><td>' + lead.area + '</td><td>' + (lead.source_account || '') + '</td><td class="context-cell">' + (lead.context || lead.comment || '') + '</td><td>' + lead.intent_score + '</td><td class="' + interestClass + '">' + interestLabel + '</td><td>' + createdAt + '</td><td>' + actionButtons + '</td>';
+      tbody.appendChild(tr);
+    });
+  }
+
+  function filterRows() {
+    const nicheVal = document.getElementById('nicheFilter').value.trim().toLowerCase();
+    const areaVal = document.getElementById('areaFilter').value.trim().toLowerCase();
+    const subjectVal = document.getElementById('subjectFilter').value.trim().toLowerCase();
+    const rows = tbody.querySelectorAll('tr');
+    rows.forEach(row => {
+      const name = row.cells[1].textContent.trim().toLowerCase();
+      const niche = row.cells[2].textContent.trim().toLowerCase();
+      const area = row.cells[3].textContent.trim().toLowerCase();
+      const nicheMatch = !nicheVal || niche.includes(nicheVal);
+      const areaMatch = !areaVal || area.includes(areaVal);
+      const subjectMatch = !subjectVal || (name + ' ' + niche + ' ' + area).includes(subjectVal);
+      row.style.display = (nicheMatch && areaMatch && subjectMatch) ? '' : 'none';
+    });
+  }
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    filterRows();
+  });
+
+  document.getElementById('sortFilter')?.addEventListener('change', function () {
+    const statusDiv = document.getElementById('statusMessage');
+    fetchLeads().then(() => {
+      statusDiv.textContent = 'Diurutkan berdasarkan: ' + this.value;
+    });
+  });
+
+  form.addEventListener('reset', function () {
+    const rows = tbody.querySelectorAll('tr');
+    rows.forEach(row => { row.style.display = ''; });
+    statusDiv.textContent = '';
+  });
+
+  document.getElementById('runScoutBtn')?.addEventListener('click', runScoutAgent);
+
+  // Mode Farming
+  const farmingModal = document.getElementById('farmingModal');
+  const farmingBtn = document.getElementById('farmingModeBtn');
+  const farmingCloseBtn = document.getElementById('farmingCloseBtn');
+  const farmingList = document.getElementById('farmingList');
+
+  farmingBtn?.addEventListener('click', function () {
+    const allLeads = window.leadsData || [];
+    const filtered = allLeads
+      .filter(l => (parseFloat(l.intent_score) || 0) >= 0.6)
+      .sort((a, b) => (parseFloat(b.intent_score) || 0) - (parseFloat(a.intent_score) || 0))
+      .slice(0, 10);
+
+    farmingList.innerHTML = '';
+
+    if (filtered.length === 0) {
+      farmingList.innerHTML = '<li style="margin-bottom:12px; padding:8px; border-bottom:1px solid #eee; color:#666;">Tiada prospek Hot/Super Hot buat masa ni. Jalankan Hunter dahulu.</li>';
+    } else {
+      filtered.forEach(lead => {
+        const name = lead.name || '';
+        const score = lead.intent_score || 0;
+        const li = document.createElement('li');
+        li.style.marginBottom = '12px';
+        li.style.padding = '8px';
+        li.style.borderBottom = '1px solid #eee';
+        li.innerHTML = `<strong>${name}</strong> — Skor: ${score} <a href="https://www.tiktok.com/@${name}" target="_blank" rel="noopener" class="btn btn-sm btn-dark" style="margin-left:8px;">Buka Profil &amp; Follow</a>`;
+        farmingList.appendChild(li);
+      });
+    }
+    farmingModal.style.display = 'flex';
+  });
+
+  farmingCloseBtn?.addEventListener('click', function () {
+    farmingModal.style.display = 'none';
+  });
+
+  farmingModal?.addEventListener('click', function (e) {
+    if (e.target === farmingModal) farmingModal.style.display = 'none';
+  });
+
+  fetchLeads();
+
+  // VIP Watchlist Alerts
+  async function checkVipAlerts() {
+    try {
+      const { data, error } = await supabaseClient.from('vip_targets').select('*').eq('is_live', true);
+      if (error) return;
+
+      const banner = document.getElementById('vipAlertBanner');
+      const bannerText = document.getElementById('vipAlertText');
+      const bannerLink = document.getElementById('vipAlertLink');
+
+      if (data && data.length > 0) {
+        const vip = data[0];
+        bannerText.textContent = `🔴 LIVE SEKARANG: @${vip.username} (Viewers: ${vip.current_viewers})`;
+        bannerLink.href = `https://www.tiktok.com/@${vip.username}`;
+        banner.style.display = 'block';
+
+        if (Notification.permission === 'granted') {
+          new Notification(`🔴 ${vip.username} Live Sekarang!`, {
+            body: `Viewers: ${vip.current_viewers}`,
+          });
+        }
+      } else {
+        banner.style.display = 'none';
+      }
+    } catch (e) {
+      console.error('VIP alert error:', e);
+    }
+  }
+
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+
+  setInterval(checkVipAlerts, 30000);
+  checkVipAlerts();
+
+  // ==================== AUTHENTICATION ====================
+  const CORRECT_PASSWORD = "mayang2026";
+  const authOverlay = document.getElementById('authOverlay');
+  const passwordInput = document.getElementById('passwordInput');
+  const loginBtn = document.getElementById('loginBtn');
+  const loginError = document.getElementById('loginError');
+
+  function checkAuth() {
+    if (sessionStorage.getItem('isLoggedIn') === 'true') {
+      authOverlay.style.display = 'none';
+    } else {
+      authOverlay.style.display = 'flex';
+    }
+  }
+
+  checkAuth();
+
+  loginBtn?.addEventListener('click', function () {
+    if (passwordInput.value === CORRECT_PASSWORD) {
+      sessionStorage.setItem('isLoggedIn', 'true');
+      authOverlay.style.display = 'none';
+      loginError.style.display = 'none';
+      passwordInput.value = '';
+    } else {
+      loginError.style.display = 'block';
+      passwordInput.value = '';
+      passwordInput.focus();
+    }
+  });
+
+  passwordInput?.addEventListener('keypress', function (e) {
+    if (e.key === 'Enter') {
+      loginBtn.click();
+    }
+  });
+</script>
+  <div id="farmingModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:9999; align-items:center; justify-content:center;">
+    <div style="background:#fff; max-width:600px; width:90%; border-radius:12px; padding:24px; max-height:80vh; overflow-y:auto;">
+      <h2 style="margin-top:0;">🌾 Senarai Sasaran Hari Ini</h2>
+      <p style="font-size:14px; color:#555;">Follow dan Like 2-3 video setiap prospek di bawah. Kemudian, upload video promosi anda pada jam 8 malam untuk masuk ke feed mereka secara organik.</p>
+      <ul id="farmingList" style="list-style:none; padding:0;"></ul>
+      <button id="farmingCloseBtn" class="btn btn-secondary" style="margin-top:16px;">Tutup</button>
+    </div>
+  </div>
+</body>
+
+</html>
