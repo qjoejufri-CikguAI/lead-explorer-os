@@ -79,11 +79,31 @@
     renderLeads(data || []);
   }
 
+  const LEVEL_ORDER = { 'Super Hot': 0, 'Hot': 1, 'Warm': 2, 'Cold': 3 };
+
+  function getLevel(score) {
+    if (score >= 0.8) return 'Super Hot';
+    if (score >= 0.6) return 'Hot';
+    if (score >= 0.4) return 'Warm';
+    return 'Cold';
+  }
+
   function renderLeads(leads) {
     tbody.innerHTML = '';
-    leads.forEach(lead => {
+
+    const sorted = [...leads].sort((a, b) => {
+      const scoreA = parseFloat(a.intent_score) || 0;
+      const scoreB = parseFloat(b.intent_score) || 0;
+      const levelA = getLevel(scoreA);
+      const levelB = getLevel(scoreB);
+      const levelDiff = LEVEL_ORDER[levelA] - LEVEL_ORDER[levelB];
+      if (levelDiff !== 0) return levelDiff;
+      return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+    });
+
+    sorted.forEach(lead => {
       const score = parseFloat(lead.intent_score) || 0;
-      const label = score >= 0.8 ? 'Super Hot' : score >= 0.6 ? 'Hot' : score >= 0.4 ? 'Warm' : 'Cold';
+      const label = getLevel(score);
       const cls = score >= 0.8 ? 'text-danger' : score >= 0.6 ? 'text-warning' : score >= 0.4 ? 'text-info' : 'text-muted';
       const date = lead.created_at ? new Date(lead.created_at).toLocaleString('ms-MY') : '';
       const profileUrl = lead.social_link || `https://www.tiktok.com/@${lead.name}`;
