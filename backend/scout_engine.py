@@ -82,8 +82,8 @@ def save_to_sqlite(leads):
 
         # Upsert: jika nama + source_account sudah wujud, gabungkan konteks dan ambil skor tertinggi
         cursor.execute('''
-            INSERT INTO leads (name, niche, area, intent_score, interest_level, phone, email, social_link, platform, source_type, context, plate_number, keyword, source_account, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO leads (name, niche, area, intent_score, interest_level, phone, email, social_link, platform, source_type, context, plate_number, keyword, source_account, created_at, brand)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(name, source_account) DO UPDATE SET
                 context = leads.context || ' | ' || excluded.context,
                 intent_score = MAX(leads.intent_score, excluded.intent_score),
@@ -91,12 +91,14 @@ def save_to_sqlite(leads):
                     WHEN MAX(leads.intent_score, excluded.intent_score) >= 0.8 THEN 'Hot'
                     WHEN MAX(leads.intent_score, excluded.intent_score) >= 0.6 THEN 'Warm'
                     ELSE 'Cold'
-                END
+                END,
+                brand = excluded.brand
         ''', (
             name, lead.get('niche'), lead.get('area'), intent_score, interest_level,
             lead.get('phone', ''), lead.get('email', ''), lead.get('social_link', ''),
             lead.get('platform'), lead.get('source_type'), context, lead.get('plate_number', ''),
-            lead.get('keyword'), source_account, datetime.now().isoformat()
+            lead.get('keyword'), source_account, datetime.now().isoformat(),
+            lead.get('brand', '')
         ))
         saved += 1
     conn.commit()

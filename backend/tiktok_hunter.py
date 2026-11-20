@@ -30,6 +30,8 @@ seen_comments = set()
 seen_joins = set()
 data_queue = asyncio.Queue()
 semaphore = asyncio.Semaphore(3)
+target_brands = {}      # username -> brand
+active_monitors = set()  # username yang sedang dipantau
 
 
 def save_to_json(data_list):
@@ -38,7 +40,7 @@ def save_to_json(data_list):
 
 
 def fetch_targets_from_supabase():
-    """Ambil semua username dari table scout_targets di Supabase, tulis ke targets.txt."""
+    """Ambil semua username + brand dari table scout_targets di Supabase."""
     try:
         headers = {
             "apikey": SUPABASE_KEY,
@@ -46,7 +48,7 @@ def fetch_targets_from_supabase():
             "Content-Type": "application/json",
         }
         res = requests.get(
-            f"{SUPABASE_URL}/rest/v1/scout_targets?select=username&order=created_at.asc",
+            f"{SUPABASE_URL}/rest/v1/scout_targets?select=username,brand&order=created_at.asc",
             headers=headers,
             timeout=30,
         )
@@ -55,17 +57,24 @@ def fetch_targets_from_supabase():
             return []
 
         data = res.json()
-        usernames = [row['username'] for row in data if row.get('username')]
+        results = []
+        for row in data:
+            username = row.get('username')
+            brand = row.get('brand') or ''
+            if username:
+                results.append({"username": username, "brand": brand})
+                target_brands[username] = brand
 
-        # Tulis ke targets.txt
+        # Tulis ke targets.txt (backward compat)
+        usernames = [r["username"] for r in results]
         if usernames:
             TARGETS_PATH.write_text("\n".join(usernames) + "\n", encoding="utf-8")
-            print(f"[INFO] Dapat {len(usernames)} target dari Supabase scout_targets.")
+            print(f"[INFO] Dapat {len(results)} target dari Supabase scout_targets.")
         else:
             TARGETS_PATH.write_text("", encoding="utf-8")
             print("[INFO] Tiada target dalam database scout_targets.")
 
-        return usernames
+        return results
     except Exception as e:
         print(f"[WARN] Ralat fetch scout_targets: {e}")
         return []
@@ -118,7 +127,30 @@ async def queue_worker():
                 data_queue.task_done()
 
 
-async def monitor_live(username: str):
+async def poll_new_targets():
+    """Background task: semak Supabase setiap 90 saat untuk target baru.
+    Cipta monitor_live untuk username baru tanpa duplicate."""
+    loop = asyncio.get_event_loop()
+    while True:
+        await asyncio.sleep(90)  # 1.5 minit
+        try:
+            targets = await loop.run_in_executor(None, fetch_targets_from_supabase)
+            for t in targets:
+                username = t["username"]
+                brand = t.get("brand", "")
+                if username not in active_monitors:
+                    active_monitors.add(username)
+                    task = asyncio.create_task(monitor_live(username, brand))
+                    # Sahkan aktif kembali set bila task tamat
+                    task.add_done_callback(lambda tsk, u=username: active_monitors.discard(u))
+                    print(f"[INFO] Target baru dipantau: @{username} (brand: {brand or '-'})")
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            print(f"[WARN] Ralat poll target baru: {e}")
+
+
+async def monitor_live(username: str, brand: str = ""):
     """Pantau satu TikTok Live hingga tamat, kemudian lepaskan semaphore."""
     async with semaphore:
         print(f"[INFO] Memantau @{username}...")
@@ -177,6 +209,7 @@ async def monitor_live(username: str):
                     "plate_number": "",
                     "keyword": "",
                     "source_account": username,
+                    "brand": brand,
                     "created_at": datetime.now().isoformat(),
                 }
                 await data_queue.put({
@@ -193,23 +226,33 @@ async def monitor_live(username: str):
 
 async def main(targets_file: str):
     # Ambil target dari Supabase scout_targets (Human-in-the-loop dari Dashboard)
-    usernames = fetch_targets_from_supabase()
+    targets = fetch_targets_from_supabase()  # list of {"username":..., "brand":...}
 
-    # Baca targets dari fail (yang baru ditulis dari Supabase)
+    # Sahkan active_monitors dan target_brands untuk initial targets
+    for t in targets:
+        active_monitors.add(t["username"])
+        target_brands[t["username"]] = t.get("brand", "")
+
+    # Baca targets dari fail (backward compat)
     targets_path = Path(targets_file)
     if not targets_path.exists():
-        print(f"[ERROR] Fail targets tidak jumpa: {targets_file}")
-        print("[INFO] Cipta fail contoh targets.txt...")
+        print(f"[INFO] Cipta fail contoh targets.txt...")
         targets_path.write_text("@dealer_kereta\n@jualan_motor\n", encoding="utf-8")
 
     with open(targets_path, "r", encoding="utf-8") as f:
-        targets = [line.strip().replace("@", "") for line in f if line.strip()]
+        file_targets = [line.strip().replace("@", "") for line in f if line.strip()]
 
-    if not targets:
+    # Gabungkan file_targets yang belum ada dalam active_monitors
+    for u in file_targets:
+        if u not in active_monitors:
+            active_monitors.add(u)
+            target_brands[u] = target_brands.get(u, "")
+
+    if not active_monitors:
         print("[INFO] Tiada target dalam database. Hunter berhenti.")
         return
 
-    print(f"[INFO] Dapat {len(targets)} target: {targets}")
+    print(f"[INFO] Dapat {len(active_monitors)} target: {sorted(active_monitors)}")
 
     # Init database
     init_db()
@@ -217,25 +260,29 @@ async def main(targets_file: str):
     # Start queue worker
     worker_task = asyncio.create_task(queue_worker())
 
-    # Cipta tasks untuk semua target (semaphore hadkan concurrency kepada 3)
-    tasks = []
-    for target in targets:
-        task = asyncio.create_task(monitor_live(target))
-        tasks.append(task)
+    # Start background poll task (cek target baru setiap 90 saat)
+    poll_task = asyncio.create_task(poll_new_targets())
+
+    # Cipta monitor tasks untuk semua target awal (semaphore hadkan concurrency kepada 3)
+    for u in sorted(active_monitors):
+        asyncio.create_task(monitor_live(u, target_brands.get(u, "")))
 
     try:
-        # Tunggu semua live monitor tamat
-        await asyncio.gather(*tasks)
+        # Tunggu poll task (berjalan selamanya). Monitor tasks berjalan secara independent.
+        await poll_task
     except KeyboardInterrupt:
         print("\n[INFO] Dihentikan oleh pengguna.")
-        # Disconnect semua client
-        for task in tasks:
-            task.cancel()
+        poll_task.cancel()
     finally:
-        # Berhenti worker
+        # Berhenti worker dan poll
         worker_task.cancel()
+        poll_task.cancel()
         try:
             await worker_task
+        except asyncio.CancelledError:
+            pass
+        try:
+            await poll_task
         except asyncio.CancelledError:
             pass
 

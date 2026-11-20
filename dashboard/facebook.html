@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Facebook Lead Explorer</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { background-color: #f8f9fa; padding-top: 40px; }
+        .container { max-width: 1200px; }
+        .table-container { background: #fff; border-radius: 8px; box-shadow: 0 2px 15px rgba(0,0,0,0.1); padding: 25px; margin-top: 30px; }
+        h1 { color: #2c3e50; margin-bottom: 20px; }
+        .data-count { color: #6c757d; font-size: 0.9rem; margin-bottom: 20px; }
+        .search-form { margin-bottom: 15px; padding: 15px; background: #f1f3f5; border-radius: 8px; }
+        .status-message { margin-top: 10px; padding: 10px; border-radius: 4px; }
+        .context-cell { max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    </style>
+</head>
+<body>
+<div id="authOverlay" style="display:flex; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:99999; align-items:center; justify-content:center;">
+  <div style="background:#fff; max-width:400px; width:90%; padding:40px; border-radius:12px; box-shadow:0 4px 20px rgba(0,0,0,0.3); text-align:center;">
+    <h2 style="margin-top:0;">🔐 Lead Explorer - Login</h2>
+    <input type="password" id="passwordInput" placeholder="Masukkan Password" style="width:100%; padding:12px; margin-bottom:16px; font-size:1rem; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;">
+    <button id="loginBtn" style="width:100%; padding:12px; background:#0d6efd; color:#fff; border:none; border-radius:6px; font-size:1rem; cursor:pointer;">Masuk</button>
+    <p id="loginError" style="color:red; display:none; margin-top:12px; font-size:0.9rem;">Password Salah!</p>
+  </div>
+</div>
+<div class="container">
+    <div class="text-center mb-4">
+        <h1>Facebook Lead Explorer</h1>
+        <div class="data-count" id="totalLeadsCount">Total Leads: 5</div>
+    </div>
+
+    <div class="text-center mb-3">
+        <a href="index.html" class="btn btn-secondary me-2">🔙 Kembali ke Utama</a>
+        <a href="tiktok.html" class="btn btn-primary">Buka Dashboard TikTok</a>
+    </div>
+
+    <form id="filterForm" class="search-form">
+        <div class="row g-3">
+            <div class="col-md-4">
+                <select class="form-select" id="nicheFilter">
+                    <option value="">Semua Niche</option>
+                    <option value="Jualan Kereta">Jualan Kereta</option>
+                    <option value="Servis Bengkel">Servis Bengkel</option>
+                    <option value="Aksesori Kereta">Aksesori Kereta</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <select class="form-select" id="areaFilter">
+                    <option value="">Semua Kawasan</option>
+                    <option value="Kuala Lumpur">Wilayah Persekutuan Kuala Lumpur</option>
+                    <option value="Putrajaya">Wilayah Persekutuan Putrajaya</option>
+                    <option value="Labuan">Wilayah Persekutuan Labuan</option>
+                    <option value="Petaling Jaya">Selangor - Petaling Jaya</option>
+                    <option value="Shah Alam">Selangor - Shah Alam</option>
+                    <option value="Klang">Selangor - Klang</option>
+                    <option value="Subang Jaya">Selangor - Subang Jaya</option>
+                    <option value="Gombak">Selangor - Gombak</option>
+                    <option value="Hulu Langat">Selangor - Hulu Langat</option>
+                    <option value="Sungai Buloh">Selangor - Sungai Buloh</option>
+                    <option value="Rawang">Selangor - Rawang</option>
+                    <option value="Muar">Johor - Muar</option>
+                    <option value="Tangkak">Johor - Tangkak</option>
+                    <option value="Batu Pahat">Johor - Batu Pahat</option>
+                    <option value="Kluang">Johor - Kluang</option>
+                    <option value="Johor Bahru">Johor - Johor Bahru</option>
+                    <option value="Segamat">Johor - Segamat</option>
+                    <option value="Pontian">Johor - Pontian</option>
+                    <option value="Kota Tinggi">Johor - Kota Tinggi</option>
+                    <option value="Mersing">Johor - Mersing</option>
+                    <option value="Kulai">Johor - Kulai</option>
+                    <option value="Seremban">Negeri Sembilan - Seremban</option>
+                    <option value="Nilai">Negeri Sembilan - Nilai</option>
+                    <option value="Bahau">Negeri Sembilan - Bahau</option>
+                    <option value="Gemas">Negeri Sembilan - Gemas</option>
+                    <option value="Ayer Hitam">Negeri Sembilan - Ayer Hitam</option>
+                    <option value="Kuantan">Pahang - Kuantan</option>
+                    <option value="Gambang">Pahang - Gambang</option>
+                    <option value="Temerloh">Pahang - Temerloh</option>
+                    <option value="Bandar Muadzam Shah">Pahang - Bandar Muadzam Shah</option>
+                    <option value="Ipoh">Perak - Ipoh</option>
+                    <option value="Taiping">Perak - Taiping</option>
+                    <option value="Cameron Highlands">Perak - Cameron Highlands</option>
+                    <option value="Gopeng">Perak - Gopeng</option>
+                    <option value="Teluk Intan">Perak - Teluk Intan</option>
+                    <option value="Padang Rengas">Perak - Padang Rengas</option>
+                    <option value="Kangar">Perlis - Kangar</option>
+                    <option value="Padang Serai">Perlis - Padang Serai</option>
+                    <option value="Arau">Perlis - Arau</option>
+                    <option value="Simpang Empat">Perlis - Simpang Empat</option>
+                    <option value="George Town">Penang - George Town</option>
+                    <option value="Butterworth">Penang - Butterworth</option>
+                    <option value="Bayan Lepas">Penang - Bayan Lepas</option>
+                    <option value="Kota Kinabalu">Sabah - Kota Kinabalu</option>
+                    <option value="Sandakan">Sabah - Sandakan</option>
+                    <option value="Likas">Sabah - Likas</option>
+                    <option value="Papar">Sabah - Papar</option>
+                    <option value="Ranau">Sabah - Ranau</option>
+                    <option value="Penampang">Sabah - Penampang</option>
+                    <option value="Kuching">Sarawak - Kuching</option>
+                    <option value="Sibu">Sarawak - Sibu</option>
+                    <option value="Miri">Sarawak - Miri</option>
+                    <option value="Bintulu">Sarawak - Bintulu</option>
+                    <option value="Kuala Terengganu">Terengganu - Kuala Terengganu</option>
+                    <option value="Kuala Berang">Terengganu - Kuala Berang</option>
+                    <option value="Hulu Terengganu">Terengganu - Hulu Terengganu</option>
+                    <option value="Setiu">Terengganu - Setiu</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <input type="text" class="form-control" id="subjectFilter" placeholder="Cari Nama, Niche, Daerah atau Kata Kunci">
+            </div>
+            <div class="col-md-4">
+                <select class="form-select" id="sortFilter">
+                    <option value="score">Intent Score (Tinggi ke Rendah)</option>
+                    <option value="new">Terbaru</option>
+                    <option value="name">Nama (A-Z)</option>
+                </select>
+            </div>
+            <div class="col-12">
+                <button type="submit" class="btn btn-primary">Apply Filters</button>
+                <button type="reset" class="btn btn-outline-secondary">Reset</button>
+                <button id="runScoutBtn" class="btn btn-success ms-2" type="button">Run Scout Agent</button>
+            </div>
+        </div>
+    </form>
+    <div class="status-message" id="statusMessage"></div>
+
+    <div class="table-container">
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead class="table-dark">
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Niche</th>
+                        <th>Area</th>
+                        <th>Live Dari</th>
+                        <th>Konteks / Komen</th>
+                        <th>Intent Score</th>
+                        <th>Interest Level</th>
+                        <th>Tarikh/Masa</th>
+                        <th>Tindakan</th>
+                    </tr>
+                </thead>
+                <tbody id="leadsTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script type="module">
+  import { supabaseClient } from './src/supabaseClient.js';
+  import { runScoutAgent } from './src/scoutAgent.js';
+
+function openWhatsApp(btn) {
+    const phone = btn.closest('tr').dataset.phone;
+    if (!phone) {
+        alert('Nombor telefon tiada untuk lead ni.');
+        return;
+    }
+    window.open('https://wa.me/' + phone, '_blank');
+}
+
+function openCall(btn) {
+    const phone = btn.closest('tr').dataset.phone;
+    if (!phone) { alert('Tiada nombor telefon.'); return; }
+    window.location.href = 'tel:' + phone;
+}
+
+function copyPhone(btn) {
+    const phone = btn.closest('tr').dataset.phone;
+    if (!phone) return;
+    navigator.clipboard.writeText(phone).then(() => {
+        const original = btn.innerHTML;
+        btn.innerHTML = '✅';
+        setTimeout(() => { btn.innerHTML = original; }, 1500);
+    });
+}
+
+function openEmail(btn) {
+    const tr = btn.closest('tr');
+    const email = tr.dataset.email || '';
+    if (!email) { alert('Tiada email untuk lead ini.'); return; }
+    window.location.href = 'mailto:' + email;
+}
+
+function openDM(btn) {
+    const tr = btn.closest('tr');
+    const url = tr.dataset.socialLink || tr.dataset.profileUrl || '';
+    if (!url) { alert('Tiada link profil untuk lead ini.'); return; }
+    window.open(url, '_blank');
+  }
+
+  const tbody = document.getElementById('leadsTableBody');
+  const form = document.getElementById('filterForm');
+  const statusDiv = document.getElementById('statusMessage');
+
+  async function fetchLeads() {
+    statusDiv.textContent = 'Memuatkan prospek dari Supabase...';
+    const { data, error } = await supabaseClient.from('leads').select('*').eq('platform', 'Facebook').order('id', { ascending: true });
+    if (error) {
+      statusDiv.textContent = 'Ralat memuatkan prospek: ' + error.message;
+      return;
+    }
+    window.leadsData = data || [];
+    renderLeads(window.leadsData);
+    const count = (data || []).length;
+    document.getElementById('totalLeadsCount').textContent = 'Total Leads: ' + count;
+    console.log('Data dari Supabase:', data);
+    statusDiv.textContent = 'Dimuatkan ' + count + ' prospek dari Supabase.';
+  }
+  window.fetchLeads = fetchLeads;
+
+  function renderLeads(leads) {
+    tbody.innerHTML = '';
+    const sortVal = document.getElementById('sortFilter')?.value || 'score';
+    const sorted = [...leads].sort((a, b) => {
+      if (sortVal === 'score') {
+        return (b.intent_score || 0) - (a.intent_score || 0);
+      } else if (sortVal === 'new') {
+        return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+      } else if (sortVal === 'name') {
+        return (a.name || '').localeCompare(b.name || '');
+      }
+      return 0;
+    });
+    sorted.forEach(lead => {
+      const tr = document.createElement('tr');
+      tr.dataset.phone = lead.phone || '';
+      tr.dataset.email = lead.email || '';
+      tr.dataset.socialLink = lead.social_link || lead.profile_url || '';
+      const score = parseFloat(lead.intent_score) || 0;
+      const interestClass = score >= 0.8 ? 'text-danger' : score >= 0.6 ? 'text-warning' : score >= 0.4 ? 'text-info' : 'text-muted';
+      const interestLabel = score >= 0.8 ? 'Super Hot' : score >= 0.6 ? 'Hot' : score >= 0.4 ? 'Warm' : 'Cold';
+      const emailDisabled = !lead.email ? 'disabled' : '';
+      const dmDisabled = (!lead.social_link && !lead.profile_url) ? 'disabled' : '';
+
+      let actionButtons = '';
+      if (lead.platform === 'Facebook') {
+        const fbUrl = 'https://www.facebook.com/search/top?q=' + encodeURIComponent(lead.name || '');
+        actionButtons = '<div class="d-flex gap-1"><button type="button" class="btn btn-sm btn-dark" onclick="window.open(\'' + fbUrl.replace(/'/g, "\\'") + '\', \'_blank\')" title="Buka Profil Facebook">Buka Profil Facebook</button><button type="button" class="btn btn-sm btn-outline-secondary" onclick="copyPhone(this)" title="Copy">📋</button></div>';
+      } else if (lead.platform === 'TikTok') {
+        const profileUrl = lead.social_link || `https://www.tiktok.com/@${lead.name}`;
+        actionButtons = '<div class="d-flex gap-1"><button type="button" class="btn btn-sm btn-dark" onclick="window.open(\'' + profileUrl.replace(/'/g, "\\'") + '\', \'_blank\')" title="Buka Profil TikTok">🎵 Profil TikTok</button><button type="button" class="btn btn-sm btn-outline-secondary" onclick="copyPhone(this)" title="Copy">📋</button></div>';
+      } else {
+        actionButtons = '<div class="d-flex gap-1"><button type="button" class="btn btn-sm btn-success" onclick="openWhatsApp(this)" title="WhatsApp">📱</button><button type="button" class="btn btn-sm btn-outline-primary" onclick="openCall(this)" title="Call">📞</button><button type="button" class="btn btn-sm btn-outline-secondary" onclick="copyPhone(this)" title="Copy">📋</button><button type="button" class="btn btn-sm btn-outline-danger" onclick="openEmail(this)" title="Email" ' + emailDisabled + '>✉️</button><button type="button" class="btn btn-sm btn-outline-info" onclick="openDM(this)" title="DM/Profil" ' + dmDisabled + '>🔗</button></div>';
+      }
+      const createdAt = lead.created_at ? new Date(lead.created_at).toLocaleString('ms-MY') : '';
+      tr.innerHTML = '<td>' + lead.id + '</td><td>' + lead.name + '</td><td>' + lead.niche + '</td><td>' + lead.area + '</td><td>' + (lead.source_account || '') + '</td><td class="context-cell">' + (lead.context || lead.comment || '') + '</td><td>' + lead.intent_score + '</td><td class="' + interestClass + '">' + interestLabel + '</td><td>' + createdAt + '</td><td>' + actionButtons + '</td>';
+      tbody.appendChild(tr);
+    });
+  }
+
+  function filterRows() {
+    const nicheVal = document.getElementById('nicheFilter').value.trim().toLowerCase();
+    const areaVal = document.getElementById('areaFilter').value.trim().toLowerCase();
+    const subjectVal = document.getElementById('subjectFilter').value.trim().toLowerCase();
+    const rows = tbody.querySelectorAll('tr');
+    rows.forEach(row => {
+      const name = row.cells[1].textContent.trim().toLowerCase();
+      const niche = row.cells[2].textContent.trim().toLowerCase();
+      const area = row.cells[3].textContent.trim().toLowerCase();
+      const nicheMatch = !nicheVal || niche.includes(nicheVal);
+      const areaMatch = !areaVal || area.includes(areaVal);
+      const subjectMatch = !subjectVal || (name + ' ' + niche + ' ' + area).includes(subjectVal);
+      row.style.display = (nicheMatch && areaMatch && subjectMatch) ? '' : 'none';
+    });
+  }
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    filterRows();
+  });
+
+  document.getElementById('sortFilter')?.addEventListener('change', function () {
+    const statusDiv = document.getElementById('statusMessage');
+    fetchLeads().then(() => {
+      statusDiv.textContent = 'Diurutkan berdasarkan: ' + this.value;
+    });
+  });
+
+  form.addEventListener('reset', function () {
+    const rows = tbody.querySelectorAll('tr');
+    rows.forEach(row => { row.style.display = ''; });
+    statusDiv.textContent = '';
+  });
+
+  document.getElementById('runScoutBtn')?.addEventListener('click', runScoutAgent);
+
+  fetchLeads();
+
+  // ==================== AUTHENTICATION ====================
+  const CORRECT_PASSWORD = "mayang2026";
+  const authOverlay = document.getElementById('authOverlay');
+  const passwordInput = document.getElementById('passwordInput');
+  const loginBtn = document.getElementById('loginBtn');
+  const loginError = document.getElementById('loginError');
+
+  function checkAuth() {
+    if (sessionStorage.getItem('isLoggedIn') === 'true') {
+      authOverlay.style.display = 'none';
+    } else {
+      authOverlay.style.display = 'flex';
+    }
+  }
+
+  checkAuth();
+
+  loginBtn?.addEventListener('click', function () {
+    if (passwordInput.value === CORRECT_PASSWORD) {
+      sessionStorage.setItem('isLoggedIn', 'true');
+      authOverlay.style.display = 'none';
+      loginError.style.display = 'none';
+      passwordInput.value = '';
+    } else {
+      loginError.style.display = 'block';
+      passwordInput.value = '';
+      passwordInput.focus();
+    }
+  });
+
+  passwordInput?.addEventListener('keypress', function (e) {
+    if (e.key === 'Enter') {
+      loginBtn.click();
+    }
+  });
+</script>
+</body>
+
+</html>
