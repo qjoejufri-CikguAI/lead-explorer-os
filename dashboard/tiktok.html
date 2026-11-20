@@ -588,6 +588,15 @@ function openDM(btn) {
       });
   }
 
+  // Expose functions to global scope for inline onclick handlers
+  window.copyPhone = copyPhone;
+  window.openWhatsApp = openWhatsApp;
+  window.openCall = openCall;
+  window.openEmail = openEmail;
+  window.openDM = openDM;
+  window.markAsDM = markAsDM;
+  window.switchTab = switchTab;
+
   function renderLeads(leads, tab) {
     tab = tab || currentTab || 'aktif';
     const tbodyEl = document.getElementById('leadsTableBody' + (tab === 'aktif' ? 'Aktif' : 'Sembunyi'));

@@ -130,7 +130,7 @@ async def queue_worker():
 async def poll_new_targets():
     """Background task: semak Supabase setiap 90 saat untuk target baru.
     Cipta monitor_live untuk username baru tanpa duplicate."""
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     while True:
         await asyncio.sleep(90)  # 1.5 minit
         try:
