@@ -670,13 +670,19 @@ function openDM(btn) {
   window.toggleHunt = async function (username, toHunt) {
     try {
       const newStatus = toHunt ? 'hunting' : 'pending';
+      console.log('[TOGGLE] Updating @' + username + ' to status=' + newStatus);
       const { error } = await supabaseClient
         .from('scout_targets')
         .update({ status: newStatus })
         .eq('username', username);
-      if (error) throw error;
+      if (error) {
+        console.error('[TOGGLE] Supabase error:', error);
+        throw error;
+      }
+      console.log('[TOGGLE] Success @' + username + ' -> ' + newStatus);
       await renderTargetsList();
     } catch (err) {
+      console.error('[TOGGLE] Exception:', err);
       alert('Gagal ubah status target: ' + err.message);
     }
   };
