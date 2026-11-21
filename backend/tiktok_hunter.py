@@ -40,7 +40,8 @@ def save_to_json(data_list):
 
 
 def fetch_targets_from_supabase():
-    """Ambil semua username + brand dari table scout_targets di Supabase."""
+    """Ambil semua username + brand dari table scout_targets di Supabase.
+    HANYA ambil target yang berstatus 'hunting' sahaja."""
     try:
         headers = {
             "apikey": SUPABASE_KEY,
@@ -48,7 +49,7 @@ def fetch_targets_from_supabase():
             "Content-Type": "application/json",
         }
         res = requests.get(
-            f"{SUPABASE_URL}/rest/v1/scout_targets?select=username,brand&order=created_at.asc",
+            f"{SUPABASE_URL}/rest/v1/scout_targets?select=username,brand,status&status=eq.hunting&order=created_at.asc",
             headers=headers,
             timeout=30,
         )
@@ -61,18 +62,19 @@ def fetch_targets_from_supabase():
         for row in data:
             username = row.get('username')
             brand = row.get('brand') or ''
-            if username:
-                results.append({"username": username, "brand": brand})
+            status = row.get('status') or 'pending'
+            if username and status == 'hunting':
+                results.append({"username": username, "brand": brand, "status": status})
                 target_brands[username] = brand
 
-        # Tulis ke targets.txt (backward compat)
+        # Tulis ke targets.txt (backward compat) — hanya hunting targets
         usernames = [r["username"] for r in results]
         if usernames:
             TARGETS_PATH.write_text("\n".join(usernames) + "\n", encoding="utf-8")
-            print(f"[INFO] Dapat {len(results)} target dari Supabase scout_targets.")
+            print(f"[INFO] Dapat {len(results)} target (status=hunting) dari Supabase scout_targets.")
         else:
             TARGETS_PATH.write_text("", encoding="utf-8")
-            print("[INFO] Tiada target dalam database scout_targets.")
+            print("[INFO] Tiada target status=hunting dalam database scout_targets.")
 
         return results
     except Exception as e:

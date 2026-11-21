@@ -19,6 +19,9 @@ SUPABASE_HEADERS = {
 
 DB_PATH = os.path.join(os.path.dirname(__file__), '..', 'database', 'leads.db')
 
+# Global hunter process handle
+hunter_process = None
+
 class Handler(BaseHTTPRequestHandler):
     def _send_cors(self):
         self.send_header('Access-Control-Allow-Origin', '*')
@@ -63,6 +66,7 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
 
     def do_POST(self):
+        global hunter_process
         parsed = urllib.parse.urlparse(self.path)
         if parsed.path == '/api/run-scout':
             content_length = int(self.headers.get('Content-Length', 0))
@@ -135,6 +139,59 @@ class Handler(BaseHTTPRequestHandler):
                     self._send_cors()
                     self.end_headers()
                     self.wfile.write(json.dumps({ 'status': 'error', 'message': str(resp.status_code) + ' ' + resp.text }).encode())
+            except Exception as e:
+                self.send_response(500)
+                self.send_header('Content-type', 'application/json')
+                self._send_cors()
+                self.end_headers()
+                self.wfile.write(json.dumps({ 'status': 'error', 'message': str(e) }).encode())
+        elif parsed.path == '/api/start-hunter':
+            if hunter_process and hunter_process.poll() is None:
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self._send_cors()
+                self.end_headers()
+                self.wfile.write(json.dumps({ 'status': 'info', 'message': 'Hunter sudah sedang berjalan.' }).encode())
+                return
+            try:
+                hunter_script = os.path.join(os.path.dirname(__file__), 'tiktok_hunter.py')
+                hunter_process = subprocess.Popen(
+                    ['python', hunter_script],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL
+                )
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self._send_cors()
+                self.end_headers()
+                self.wfile.write(json.dumps({ 'status': 'success', 'message': 'Hunter Started. PID: ' + str(hunter_process.pid) }).encode())
+            except Exception as e:
+                self.send_response(500)
+                self.send_header('Content-type', 'application/json')
+                self._send_cors()
+                self.end_headers()
+                self.wfile.write(json.dumps({ 'status': 'error', 'message': str(e) }).encode())
+        elif parsed.path == '/api/stop-hunter':
+            if not hunter_process or hunter_process.poll() is not None:
+                hunter_process = None
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self._send_cors()
+                self.end_headers()
+                self.wfile.write(json.dumps({ 'status': 'info', 'message': 'Hunter tidak sedang berjalan.' }).encode())
+                return
+            try:
+                hunter_process.terminate()
+                try:
+                    hunter_process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    hunter_process.kill()
+                hunter_process = None
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self._send_cors()
+                self.end_headers()
+                self.wfile.write(json.dumps({ 'status': 'success', 'message': 'Hunter Stopped.' }).encode())
             except Exception as e:
                 self.send_response(500)
                 self.send_header('Content-type', 'application/json')

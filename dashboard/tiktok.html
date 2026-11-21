@@ -162,11 +162,29 @@
               <option value="Honda">Honda</option>
               <option value="Toyota">Toyota</option>
             </select>
-            <textarea id="targetsInput" rows="10" class="form-control" placeholder="contoh:\ndealer_kereta\njualan_motor\nproton_s70"></textarea>
+            <textarea id="targetsInput" rows="6" class="form-control mb-3" placeholder="contoh:\ndealer_kereta\njualan_motor\nproton_s70"></textarea>
+
+            <hr>
+
+            <h6 class="fw-bold mb-2">Senarai Target dalam Database</h6>
+            <div class="table-responsive mb-3" style="max-height:300px; overflow-y:auto;">
+              <table class="table table-sm table-bordered">
+                <thead class="table-light">
+                  <tr>
+                    <th style="width:40%;">Username</th>
+                    <th style="width:20%;">Brand</th>
+                    <th style="width:20%;">Status</th>
+                    <th style="width:20%;">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody id="targetsListBody"></tbody>
+              </table>
+            </div>
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
-            <button type="button" class="btn btn-warning" id="saveTargetsBtn">Simpan Target</button>
+            <button type="button" class="btn btn-warning" id="saveTargetsBtn">Simpan Target Baru</button>
+            <button type="button" class="btn btn-outline-primary" id="refreshTargetsBtn">🔄 Semakan Semula</button>
           </div>
         </div>
       </div>
@@ -296,6 +314,26 @@
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
           </div>
         </div>
+      </div>
+    </div>
+
+    <div id="vipAlertBanner" style="display:none; background:#dc3545; color:#fff; padding:12px; text-align:center; border-radius:6px; margin-bottom:10px; font-weight:bold;">
+      <span id="vipAlertText"></span>
+      <a id="vipAlertLink" href="#" target="_blank" rel="noopener" style="color:#fff; text-decoration:underline; margin-left:10px;">[Buka Live]</a>
+    </div>
+
+    <!-- Hunter Control Panel -->
+    <div class="card mb-3 border-warning">
+      <div class="card-header bg-warning text-dark">
+        <h6 class="mb-0"><strong>🎯 Hunter Control Panel</strong></h6>
+      </div>
+      <div class="card-body">
+        <div class="d-flex align-items-center gap-3">
+          <span class="badge bg-dark" id="hunterStatusBadge">Hunter: STOPPED</span>
+          <button id="btnStartHunter" class="btn btn-success">▶️ Start Hunter</button>
+          <button id="btnStopHunter" class="btn btn-danger disabled">⏹️ Stop Hunter</button>
+        </div>
+        <div class="mt-2 small text-muted">Start Hunter akan jalankan `tiktok_hunter.py` melalui server localhost:8000. Pastikan server sudah nyala.</div>
       </div>
     </div>
 
@@ -548,6 +586,110 @@ function openDM(btn) {
     }
   });
 
+  // Hunter Control Panel
+  const hunterStatusBadge = document.getElementById('hunterStatusBadge');
+  const btnStartHunter = document.getElementById('btnStartHunter');
+  const btnStopHunter = document.getElementById('btnStopHunter');
+  const HUNTER_API = 'http://localhost:8000';
+
+  function updateHunterUI(running) {
+    if (running) {
+      hunterStatusBadge.textContent = 'Hunter: RUNNING';
+      hunterStatusBadge.className = 'badge bg-success';
+      btnStartHunter.disabled = true;
+      btnStopHunter.disabled = false;
+    } else {
+      hunterStatusBadge.textContent = 'Hunter: STOPPED';
+      hunterStatusBadge.className = 'badge bg-dark';
+      btnStartHunter.disabled = false;
+      btnStopHunter.disabled = true;
+    }
+  }
+
+  btnStartHunter?.addEventListener('click', async function () {
+    try {
+      const res = await fetch(HUNTER_API + '/api/start-hunter', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        updateHunterUI(true);
+        statusDiv.textContent = data.message || 'Hunter Started.';
+      } else {
+        alert('Gagal start hunter: ' + (data.message || res.status));
+      }
+    } catch (err) {
+      alert('Tidak dapat sambungi server hunter (localhost:8000). Pastikan `python backend/run_server.py` sedang berjalan.');
+      console.error(err);
+    }
+  });
+
+  btnStopHunter?.addEventListener('click', async function () {
+    try {
+      const res = await fetch(HUNTER_API + '/api/stop-hunter', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        updateHunterUI(false);
+        statusDiv.textContent = data.message || 'Hunter Stopped.';
+      } else {
+        alert('Gagal stop hunter: ' + (data.message || res.status));
+      }
+    } catch (err) {
+      alert('Tidak dapat sambungi server hunter (localhost:8000).');
+      console.error(err);
+    }
+  });
+
+  // Targets list render + toggle
+  const targetsListBody = document.getElementById('targetsListBody');
+  const refreshTargetsBtn = document.getElementById('refreshTargetsBtn');
+
+  async function renderTargetsList() {
+    try {
+      const res = await supabaseClient
+        .from('scout_targets')
+        .select('username,brand,status')
+        .order('created_at', { ascending: true });
+      if (res.error) throw res.error;
+      const rows = res.data || [];
+      targetsListBody.innerHTML = '';
+      rows.forEach(r => {
+        const isHunting = r.status === 'hunting';
+        const tr = document.createElement('tr');
+        tr.innerHTML =
+          '<td>' + r.username + '</td>' +
+          '<td>' + (r.brand || '-') + '</td>' +
+          '<td><span class="badge ' + (isHunting ? 'bg-success' : 'bg-secondary') + '">' + (r.status || 'pending') + '</span></td>' +
+          '<td><button class="btn btn-sm ' + (isHunting ? 'btn-danger' : 'btn-primary') + '" onclick="toggleHunt(\'' + r.username + '\', ' + !isHunting + ')">' + (isHunting ? '⏹️ Stop' : '🎯 Hunt') + '</button></td>';
+        targetsListBody.appendChild(tr);
+      });
+    } catch (err) {
+      console.error('Gagal muat senarai target:', err);
+      targetsListBody.innerHTML = '<tr><td colspan="4" class="text-danger">Gagal muat senarai target.</td></tr>';
+    }
+  }
+
+  window.toggleHunt = async function (username, toHunt) {
+    try {
+      const newStatus = toHunt ? 'hunting' : 'pending';
+      const { error } = await supabaseClient
+        .from('scout_targets')
+        .update({ status: newStatus })
+        .eq('username', username);
+      if (error) throw error;
+      await renderTargetsList();
+    } catch (err) {
+      alert('Gagal ubah status target: ' + err.message);
+    }
+  };
+
+  refreshTargetsBtn?.addEventListener('click', renderTargetsList);
+
+  // Show targets list when modal opens
+  setTargetsBtn?.addEventListener('click', function () {
+    const modal = new bootstrap.Modal(targetsModalEl);
+    modal.show();
+    renderTargetsList();
+  });
+
   // Current active tab
   let currentTab = 'aktif';
 
@@ -731,6 +873,7 @@ function openDM(btn) {
   });
 
   fetchLeads();
+  updateHunterUI(false);
 
   // VIP Watchlist Alerts
   async function checkVipAlerts() {
