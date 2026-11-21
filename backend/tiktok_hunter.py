@@ -337,23 +337,22 @@ async def main(targets_file: str):
         except asyncio.CancelledError:
             pass
 
-        # Tunggu semua monitor tasks selesai (untuk flush queue sebelum worker berhenti)
-        print("[INFO] Menunggu semua monitor tasks selesai untuk flush data...")
+        # Batalkan semua monitor tasks dan tunggu mereka selesai (untuk flush queue)
+        print("[INFO] Menghentikan semua monitor tasks...")
+        for task in monitor_tasks:
+            task.cancel()
         if monitor_tasks:
             await asyncio.gather(*monitor_tasks, return_exceptions=True)
 
-        # Tunggu queue kosong sebelum worker berhenti
-        print("[INFO] Menunggu queue kosong sebelum worker berhenti...")
-        await data_queue.join()
-
-        # Berhenti worker
+        # Batalkan worker task (jangan tunggu data_queue.join() yang boleh hang)
+        print("[INFO] Menghentikan worker...")
         worker_task.cancel()
         try:
             await worker_task
         except asyncio.CancelledError:
             pass
 
-        # Sync ke Supabase
+        # Sync ke Supabase - PENTING: ini mesti berjalan sebelum Python mati
         print("[INFO] Memulakan sinkronisasi ke Supabase...")
         sync_sqlite_to_supabase()
         print("[INFO] Selesai.")
@@ -364,4 +363,7 @@ if __name__ == "__main__":
     parser.add_argument("--targets_file", default="targets.txt", help="Fail mengandungi senarai username TikTok (satu per baris)")
     args = parser.parse_args()
 
-    asyncio.run(main(args.targets_file))
+    try:
+        asyncio.run(main(args.targets_file))
+    except KeyboardInterrupt:
+        print("\n[INFO] Dihentikan oleh pengguna.")
