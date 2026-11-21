@@ -57,6 +57,7 @@ def init_db():
             source_account TEXT,
             created_at TEXT,
             processed_at TEXT,
+            brand TEXT,
             UNIQUE(name, source_account)
         )
     ''')
@@ -75,35 +76,35 @@ def save_to_sqlite(leads):
         intent_score = lead.get('intent_score', 0)
         interest_level = lead.get('interest_level', '')
 
-        # Guard clause: buang lead dengan intent_score rendah (< 0.6)
-        if intent_score < 0.6:
-            skipped += 1
-            continue
-
         # Upsert: jika nama + source_account sudah wujud, gabungkan konteks dan ambil skor tertinggi
-        cursor.execute('''
-            INSERT INTO leads (name, niche, area, intent_score, interest_level, phone, email, social_link, platform, source_type, context, plate_number, keyword, source_account, created_at, brand)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(name, source_account) DO UPDATE SET
-                context = leads.context || ' | ' || excluded.context,
-                intent_score = MAX(leads.intent_score, excluded.intent_score),
-                interest_level = CASE
-                    WHEN MAX(leads.intent_score, excluded.intent_score) >= 0.8 THEN 'Hot'
-                    WHEN MAX(leads.intent_score, excluded.intent_score) >= 0.6 THEN 'Warm'
-                    ELSE 'Cold'
-                END,
-                brand = excluded.brand
-        ''', (
-            name, lead.get('niche'), lead.get('area'), intent_score, interest_level,
-            lead.get('phone', ''), lead.get('email', ''), lead.get('social_link', ''),
-            lead.get('platform'), lead.get('source_type'), context, lead.get('plate_number', ''),
-            lead.get('keyword'), source_account, datetime.now().isoformat(),
-            lead.get('brand', '')
-        ))
-        saved += 1
+        try:
+            cursor.execute('''
+                INSERT INTO leads (name, niche, area, intent_score, interest_level, phone, email, social_link, platform, source_type, context, plate_number, keyword, source_account, created_at, brand)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(name, source_account) DO UPDATE SET
+                    context = leads.context || ' | ' || excluded.context,
+                    intent_score = MAX(leads.intent_score, excluded.intent_score),
+                    interest_level = CASE
+                        WHEN MAX(leads.intent_score, excluded.intent_score) >= 0.8 THEN 'Hot'
+                        WHEN MAX(leads.intent_score, excluded.intent_score) >= 0.6 THEN 'Warm'
+                        ELSE 'Cold'
+                    END,
+                    brand = excluded.brand
+            ''', (
+                name, lead.get('niche'), lead.get('area'), intent_score, interest_level,
+                lead.get('phone', ''), lead.get('email', ''), lead.get('social_link', ''),
+                lead.get('platform'), lead.get('source_type'), context, lead.get('plate_number', ''),
+                lead.get('keyword'), source_account, datetime.now().isoformat(),
+                lead.get('brand', '')
+            ))
+            saved += 1
+            print(f"[SIMPAN] Berjaya simpan @{name} ke SQLite (skor={intent_score}).")
+        except Exception as e:
+            print(f"[ERROR] Gagal simpan @{name} ke SQLite: {e}")
+            skipped += 1
     conn.commit()
     conn.close()
-    print(f"[DONE] {saved} leads disimpan ke SQLite, {skipped} lead buang (skor < 0.6).")
+    print(f"[DONE] {saved} leads disimpan ke SQLite, {skipped} lead gagal.")
 
 def sync_sqlite_to_supabase():
     print("[INFO] Memulakan sinkronisasi SQLite ke Supabase...")
@@ -137,9 +138,12 @@ def sync_sqlite_to_supabase():
             "plate_number": r['plate_number'] or "",
             "keyword": r['keyword'] or "",
             "source_account": r['source_account'] or "",
+            "brand": r['brand'] or "",
             "created_at": created_at,
             "processed_at": processed_at
         })
+
+    print(f"[SYNC] Menghantar {len(payload)} data ke Supabase...")
 
     headers = {
         "apikey": SUPABASE_KEY,
@@ -150,9 +154,9 @@ def sync_sqlite_to_supabase():
 
     res = requests.post(f"{SUPABASE_URL}/rest/v1/leads?on_conflict=name,source_account", headers=headers, json=payload)
     if res.status_code in [200, 201]:
-        print(f"[OK] Berjaya sync {len(payload)} leads ke Supabase.")
+        print(f"[SYNC] Berjaya! {len(payload)} data dihantar ke Supabase.")
     else:
-        print(f"[WARN] Gagal sync ke Supabase: {res.status_code} {res.text}")
+        print(f"[SYNC] Gagal! {res.status_code} {res.text}")
 
 # ================= SCRAPER =================
 def scrape_facebook(niche, area):
