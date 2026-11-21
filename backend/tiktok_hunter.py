@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from scout_engine import init_db, save_to_sqlite, sync_sqlite_to_supabase, parse_intent
 
 from TikTokLive import TikTokLiveClient
-from TikTokLive.events import CommentEvent, JoinEvent
+from TikTokLive.events import CommentEvent, JoinEvent, ConnectEvent, DisconnectEvent
 
 DATA_PATH = Path(__file__).parent / "tiktok_hunter_multi_data.json"
 TARGETS_PATH = Path(__file__).parent / "targets.txt"
@@ -161,11 +161,33 @@ async def monitor_live(username: str, brand: str = ""):
 
         # Buffer untuk mengumpulkan komen per user sebelum flush
         user_comments = {}  # username -> list of comment texts
+        last_comment_time = None  # untuk deteksi silent block
+
+        @client.on(ConnectEvent)
+        async def on_connect(event: ConnectEvent):
+            print(f"[CONNECT] @{username} bersambung ke TikTok Live.")
+
+        @client.on(DisconnectEvent)
+        async def on_disconnect(event: DisconnectEvent):
+            print(f"[DISCONNECT] @{username} putus sambungan dari TikTok Live.")
+
+        async def silent_block_watcher():
+            """Peringatkan jika ada sambungan tapi tiada data komen selama 30 saat."""
+            nonlocal last_comment_time
+            while True:
+                await asyncio.sleep(30)
+                if last_comment_time is not None:
+                    idle = asyncio.get_event_loop().time() - last_comment_time
+                    if idle > 30:
+                        print(f"[WARN] Silent block? @{username} sambung tapi tiada komen selama {int(idle)} saat.")
 
         @client.on(CommentEvent)
         async def on_comment(event: CommentEvent):
             user = event.user.unique_id
             comment = event.comment
+            # Print SETIAP komen yang masuk, walaupun tak lulus skor/syarat
+            print(f"[KOMEN] @{user}: {comment}")
+            last_comment_time = asyncio.get_event_loop().time()
             comment_key = f"{username}_{user}_{comment}"
             if comment_key in seen_comments:
                 return
@@ -185,11 +207,16 @@ async def monitor_live(username: str, brand: str = ""):
             # Jangan masukkan ke queue supaya tidak sesak database.
             return
 
+        # Start silent block watcher
+        watcher_task = asyncio.create_task(silent_block_watcher())
+
         try:
             await client.connect()
         except Exception as e:
             print(f"[ERROR] @{username} gagal connect: {e}")
+            watcher_task.cancel()
         finally:
+            watcher_task.cancel()
             # Flush semua komen yang dikumpulkan - gabungkan per user, ambil skor tertinggi
             for user, comments in user_comments.items():
                 combined_text = " | ".join(comments)
