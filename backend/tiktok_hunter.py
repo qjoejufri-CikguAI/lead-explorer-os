@@ -159,7 +159,7 @@ async def monitor_live(username: str, brand: str = ""):
 
         client = TikTokLiveClient(unique_id=username)
 
-        # Buffer untuk mengumpulkan komen per user sebelum flush
+        # Buffer untuk mengumpulkan komen per user sebelum flush (untuk scoring)
         user_comments = {}  # username -> list of comment texts
         last_comment_time = None  # untuk deteksi silent block
 
@@ -172,7 +172,7 @@ async def monitor_live(username: str, brand: str = ""):
             print(f"[DISCONNECT] @{username} putus sambungan dari TikTok Live.")
 
         async def silent_block_watcher():
-            """Peringatkan jika ada sambungan tapi tiada data komen selama 30 saat."""
+            """Peringatan jika ada sambungan tapi tiada data komen selama 30 saat."""
             nonlocal last_comment_time
             while True:
                 await asyncio.sleep(30)
@@ -193,6 +193,31 @@ async def monitor_live(username: str, brand: str = ""):
                 return
             seen_comments.add(comment_key)
 
+            # Simpan ke queue segera (bukan buffer sahaja) supaya save_to_sqlite dipanggil
+            lead = {
+                "name": user,
+                "niche": "TikTok Live",
+                "area": "",
+                "intent_score": parse_intent(comment),
+                "interest_level": "Hot" if parse_intent(comment) >= 0.8 else "Warm" if parse_intent(comment) >= 0.6 else "Cold",
+                "phone": "",
+                "email": "",
+                "social_link": f"https://tiktok.com/@{user}",
+                "platform": "TikTok",
+                "source_type": "Comment",
+                "context": comment,
+                "plate_number": "",
+                "keyword": "",
+                "source_account": username,
+                "brand": brand,
+                "created_at": datetime.now().isoformat(),
+            }
+            await data_queue.put({
+                "type": "comment_lead",
+                "lead": lead,
+            })
+
+            # Juga simpan dalam buffer untuk agregasi scoring akhir
             if user not in user_comments:
                 user_comments[user] = []
             user_comments[user].append(comment)
@@ -217,7 +242,7 @@ async def monitor_live(username: str, brand: str = ""):
             watcher_task.cancel()
         finally:
             watcher_task.cancel()
-            # Flush semua komen yang dikumpulkan - gabungkan per user, ambil skor tertinggi
+            # Flush semua komen yang masih ada dalam buffer (untuk agregasi scoring akhir)
             for user, comments in user_comments.items():
                 combined_text = " | ".join(comments)
                 scores = [parse_intent(c) for c in comments]
@@ -293,8 +318,10 @@ async def main(targets_file: str):
     poll_task = asyncio.create_task(poll_new_targets())
 
     # Cipta monitor tasks untuk semua target awal (semaphore hadkan concurrency kepada 3)
+    monitor_tasks = []
     for u in sorted(active_monitors):
-        asyncio.create_task(monitor_live(u, target_brands.get(u, "")))
+        task = asyncio.create_task(monitor_live(u, target_brands.get(u, "")))
+        monitor_tasks.append(task)
 
     try:
         # Tunggu poll task (berjalan selamanya). Monitor tasks berjalan secara independent.
@@ -303,15 +330,26 @@ async def main(targets_file: str):
         print("\n[INFO] Dihentikan oleh pengguna.")
         poll_task.cancel()
     finally:
-        # Berhenti worker dan poll
-        worker_task.cancel()
+        # Berhenti poll task
         poll_task.cancel()
         try:
-            await worker_task
+            await poll_task
         except asyncio.CancelledError:
             pass
+
+        # Tunggu semua monitor tasks selesai (untuk flush queue sebelum worker berhenti)
+        print("[INFO] Menunggu semua monitor tasks selesai untuk flush data...")
+        if monitor_tasks:
+            await asyncio.gather(*monitor_tasks, return_exceptions=True)
+
+        # Tunggu queue kosong sebelum worker berhenti
+        print("[INFO] Menunggu queue kosong sebelum worker berhenti...")
+        await data_queue.join()
+
+        # Berhenti worker
+        worker_task.cancel()
         try:
-            await poll_task
+            await worker_task
         except asyncio.CancelledError:
             pass
 
@@ -326,7 +364,4 @@ if __name__ == "__main__":
     parser.add_argument("--targets_file", default="targets.txt", help="Fail mengandungi senarai username TikTok (satu per baris)")
     args = parser.parse_args()
 
-    try:
-        asyncio.run(main(args.targets_file))
-    except KeyboardInterrupt:
-        print("\n[INFO] Dihentikan.")
+    asyncio.run(main(args.targets_file))
