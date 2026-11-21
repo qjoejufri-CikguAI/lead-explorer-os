@@ -174,10 +174,11 @@ async def monitor_live(username: str, brand: str = ""):
         async def silent_block_watcher():
             """Peringatan jika ada sambungan tapi tiada data komen selama 30 saat."""
             nonlocal last_comment_time
+            loop = asyncio.get_running_loop()
             while True:
                 await asyncio.sleep(30)
                 if last_comment_time is not None:
-                    idle = asyncio.get_event_loop().time() - last_comment_time
+                    idle = loop.time() - last_comment_time
                     if idle > 30:
                         print(f"[WARN] Silent block? @{username} sambung tapi tiada komen selama {int(idle)} saat.")
 
@@ -187,7 +188,7 @@ async def monitor_live(username: str, brand: str = ""):
             comment = event.comment
             # Print SETIAP komen yang masuk, walaupun tak lulus skor/syarat
             print(f"[KOMEN] @{user}: {comment}")
-            last_comment_time = asyncio.get_event_loop().time()
+            last_comment_time = asyncio.get_running_loop().time()
             comment_key = f"{username}_{user}_{comment}"
             if comment_key in seen_comments:
                 return
@@ -326,9 +327,6 @@ async def main(targets_file: str):
     try:
         # Tunggu poll task (berjalan selamanya). Monitor tasks berjalan secara independent.
         await poll_task
-    except KeyboardInterrupt:
-        print("\n[INFO] Dihentikan oleh pengguna.")
-        poll_task.cancel()
     finally:
         # Berhenti poll task
         poll_task.cancel()
